@@ -1,0 +1,3 @@
+# 核心脚本仅需标准库即可运行。
+# 可选:解析 APK 权限/组件/包名需要 androguard。
+androguard>=4.0 ; python_version >= "3.9"

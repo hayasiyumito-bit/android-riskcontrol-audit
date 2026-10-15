@@ -1,0 +1,215 @@
+# 设备风控检测覆盖度 · 机器可读检查清单
+# Machine-readable device risk-control detection coverage checklist.
+#
+# 用途 / Purpose:
+#   AI 或脚本据此逐项核对一个目标 App 的检测覆盖度,产出结构化结论。
+#   An AI or script walks these items to assess a target app's detection coverage
+#   and emits a structured verdict.
+#
+# 每项字段 / Fields per item:
+#   id            稳定标识 / stable id
+#   name          维度名 / dimension name (zh / en)
+#   layers        期望检测所在层 / where detection should live
+#   checks        应具备的具体检测点 / concrete checks the app should have
+#   evasions      必须能抵抗的绕过手法(抓不住即遗漏)/ evasions it must resist
+#   severity_if_missing  缺失严重度 / severity when missing
+#   status        审查时填:covered | partial | missing | n/a
+#   where         审查时填:该检测在代码/SO/服务端的位置
+#   notes         审查时填
+
+meta:
+  version: 1
+  grading: "risk = signal_certainty x kill_chain_completeness"   # 信号确定性 × 作恶链完整度
+  severity_levels: [critical, high, medium, low]
+  status_values: [covered, partial, missing, "n/a"]
+
+dimensions:
+  - id: root
+    name: { zh: "Root/Magisk/KernelSU/APatch", en: "Root/Magisk/KernelSU/APatch" }
+    layers: [java, native, server]
+    checks:
+      - "su/magisk 路径与管理器包 / su & magisk paths & manager packages"
+      - "/proc/net/unix 的 magisk/zygisk socket(denylist 绕不过)/ magisk-zygisk socket via /proc/net/unix"
+      - "mount/namespace 一致性 / mount & namespace consistency"
+      - "Play Integrity MEETS_STRONG_INTEGRITY(硬件背书)/ hardware-backed attestation"
+    evasions: ["Shamiko/denylist 隐藏路径与挂载 / hides paths & mounts"]
+    severity_if_missing: high
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: hook
+    name: { zh: "Hook/注入框架", en: "Hook / injection frameworks" }
+    layers: [java, native]
+    checks:
+      - "maps 特征 / Frida 端口 27042-27043 / maps signatures & Frida ports"
+      - "rwx 页、W^X 违规、inline-hook 首字节、.text CRC / rwx pages, W^X, inline-hook, text CRC"
+      - "非安装目录加载的可执行映射 / executable maps outside install dir"
+      - "classloader 身份级完整性(见 integrity 维度)/ classloader integrity (see 'integrity')"
+      - "APK 签名 / DEX·SO 完整性校验 / signature & code integrity"
+    evasions: ["改名随机化(名字匹配即废)/ renaming defeats name matching"]
+    severity_if_missing: high
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: emulator
+    name: { zh: "模拟器(QEMU/x86 VM)", en: "Emulator (QEMU/x86 VM)" }
+    layers: [java, native]
+    checks:
+      - "qemu 属性(ro.kernel.qemu)、goldfish/ranchu、sdk_gphone / qemu props & models"
+      - "/dev/qemu_pipe、qemud/genyd socket、bluestacks.prop / emulator-only nodes"
+      - "x86 跑 ARM + 翻译层 libhoudini/libndk_translation / x86-on-ARM translation layer"
+      - "标识占位值(getDeviceId 全 0 等)/ placeholder identifiers"
+    evasions: ["改属性伪装、新型 ARM 模拟器 / spoofed props, ARM emulators"]
+    severity_if_missing: high
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: cloud
+    name: { zh: "云手机(redroid/Docker-ARM)", en: "Cloud phone (redroid/Docker-ARM)" }
+    layers: [java, native]
+    checks:
+      - "传感器缺失/全 0/零波动(无真实硬件)/ missing or flat sensors"
+      - "无基带、radioVersion=unknown、SIM ABSENT / no baseband"
+      - "软件渲染 GPU(SwiftShader/LLVMpipe/VirGL)/ software GPU"
+      - "/proc/1/cgroup docker、overlayfs、服务器 CPU / container traces"
+    evasions: ["伪造传感器数值 / faked sensor values"]
+    severity_if_missing: high
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: fingerprint
+    name: { zh: "改机/设备指纹伪装(核心)", en: "Device fingerprint spoofing (core)" }
+    layers: [java, native, file, server]
+    checks:
+      - "★跨层指纹交叉:file/native ≠ Java(Build)/ cross-layer: file/native vs Java Build"
+      - "属性多通道一致:getprop子进程/SystemProperties/JNI/属性区磁盘真值 / multi-channel property consistency"
+      - "build.prop mtime、file_stat、机型↔硬件↔abi 内在对应 / build.prop mtime & internal consistency"
+    evasions: ["全层伪装一致(把所有通道都改成同一机型)/ consistent all-layer spoof"]
+    severity_if_missing: critical
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: hook_chain
+    name: { zh: "Hook 作恶链(框架+注入+伪装)", en: "Hook kill-chain (framework+inject+disguise)" }
+    layers: [java, native]
+    checks:
+      - "框架存在 + 注入非应用路径 .so/.dex + 业务/UA 伪装 三要素联合 / all three combined"
+    evasions: ["仅暴露单要素 / exposing only one element"]
+    severity_if_missing: medium
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: device_farm
+    name: { zh: "群控/自动化(ADB/无障碍)", en: "Device farm / automation" }
+    layers: [java, server]
+    checks:
+      - "恶意无障碍 + 批量聚类 / malicious a11y + clustering"
+      - "ADB 注入输入、ADB-TCP 5555、群控端口 / ADB input injection, ADB-TCP, farm ports"
+    evasions: ["合法 adb 命令掩护,需结合行为+聚类 / legit adb cover; needs behavior+clustering"]
+    severity_if_missing: medium
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: refurb_multi
+    name: { zh: "翻新/改串/一机多号/多开", en: "Refurb / IMEI-change / multi-account / cloning" }
+    layers: [java, server]
+    checks:
+      - "mainboard_tag + 串号异常/清零 / mainboard tag + abnormal serials"
+      - "频繁'新设备'、同设备绑多账号(服务端图谱)/ frequent new-device, one-device-many-accounts"
+      - "多开/分身环境、virtualpath、虚拟框架包 / cloning env & virtual frameworks"
+    evasions: ["抹机重置身份 / factory reset to recycle identity"]
+    severity_if_missing: medium
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: integrity
+    name: { zh: "进程内完整性(classloader/加载来源)", en: "In-process integrity (classloader/load source)" }
+    layers: [java]
+    checks:
+      - "dexElements 来自非安装目录的 dex / dex loaded from non-install dir"
+      - "nativeLibraryPathElements 指向可写目录 / native lib path in writable dir"
+      - "maps 里 dex 'extracted from' app 私有 code_cache(删盘抹不掉)/ maps dex source persists after unlink"
+      - "空名/同名重复/数量>应有 的 dexElements / blank-name, duplicate, extra dex elements"
+      - "maps 与 classloader 交叉(两层对不上=篡改)/ maps vs classloader cross-check"
+    evasions: ["反射篡改/移除 pathList 元数据(进程内自检对注入方本质可绕)/ in-process metadata tampering; losable to in-process attacker"]
+    severity_if_missing: high
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: ground_truth
+    name: { zh: "跨层真值读取(反伪装取真值)", en: "Cross-layer ground-truth reads" }
+    layers: [native]
+    checks:
+      - "fork+exec /system/bin/getprop 子进程取真值 / getprop subprocess ground truth"
+      - "inline-svc(raw syscall)直读 maps/mountinfo,对比 libc 读 / svc-vs-libc reads"
+      - "直接解析 /dev/__properties__ 磁盘 trie vs 进程内读 / property-area disk vs in-process"
+    evasions: ["挂载层伪装文件、过滤 libc 读 / mount spoof + libc read filtering"]
+    severity_if_missing: high
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: location
+    name: { zh: "位置伪装", en: "Location spoofing" }
+    layers: [java, system_server, server]
+    checks:
+      - "isFromMockProvider / 测试 provider / mock provider"
+      - "融合定位源头核对(GMS 坐标在 GMS 进程算,只 hook app 侧会漏)/ fused-provider source (GMS bypass)"
+      - "原始 GNSS(GnssMeasurement/NMEA)物理自洽 / raw GNSS plausibility"
+      - "IP 归属 ↔ 时区 ↔ GPS 一致性(服务端)/ IP-timezone-GPS consistency (server)"
+    evasions: ["只伪装 app 侧、注入融合回调 / spoof app side only"]
+    severity_if_missing: high
+    status: ""
+    where: ""
+    notes: ""
+
+  - id: env_switches
+    name: { zh: "环境开关(低危,叠加升级)", en: "Env switches (low, escalate on combo)" }
+    layers: [java]
+    checks:
+      - "adb/usb 调试、VPN、代理、开发者选项、数据目录可访问 / adb,usb,vpn,proxy,devopts,data-dir"
+    evasions: []
+    severity_if_missing: low
+    status: ""
+    where: ""
+    notes: ""
+
+# 结构性检查:比单维度更重要 / Structural checks (more important than any single dimension)
+structural:
+  - id: attestation
+    q: { zh: "是否接入硬件背书 Play Integrity STRONG_INTEGRITY?", en: "Hardware-backed Play Integrity STRONG_INTEGRITY?" }
+    severity_if_missing: critical
+    status: ""
+  - id: server_backstop
+    q: { zh: "是否有服务端行为风控/设备-账号图谱/多维一致性兜底?", en: "Server-side behavior/graph/consistency backstop?" }
+    severity_if_missing: critical
+    status: ""
+  - id: grading_sane
+    q: { zh: "判罚分级是否区分'确凿'与'怀疑'?单信号是否误判高危?", en: "Does grading separate confirmed vs suspected? single-signal false-highs?" }
+    severity_if_missing: high
+    status: ""
+  - id: accumulation
+    q: { zh: "是否有'≥2 中危升高危'累加逻辑?", en: "'>=2 mediums -> high' accumulation logic?" }
+    severity_if_missing: medium
+    status: ""
+  - id: self_health
+    q: { zh: "检测自身健康监控(except_error/占位值批量上升告警)?", en: "Detector self-health monitoring (except_error/placeholder surges)?" }
+    severity_if_missing: medium
+    status: ""
+
+# 核心认知 / Key principle:
+#   进程内客户端自检对掌控本进程的注入方本质防不住(可反射伪造/移除任何进程内结构),
+#   只能抬成本;真正的防线是硬件背书 + 服务端。审查若发现"只有客户端自检、无 attestation、
+#   无服务端兜底" => 这是最高优先级(critical)遗漏。
+#   In-process client self-checks are fundamentally bypassable by an attacker who controls the
+#   process; they only raise cost. The real defenses are hardware attestation + server-side.
+#   "Client-only self-checks, no attestation, no server backstop" => the top-priority (critical) gap.
