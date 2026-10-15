@@ -79,7 +79,7 @@ Then hand `out/` + `docs/` + `checklist/coverage.yaml` to an AI and follow `SKIL
 
 An open-source **device-info collection / detection reference app** (package `com.android.device`) implements many of these checks as a runnable, on-device detector with live verdicts — handy to validate "can this check actually catch it on a real device".
 
-- Repository: `<fill in the reference app's git URL here>`
+- Repository: https://github.com/hayasiyumito-bit/deviceinfo_collect
 
 > The two projects are independent; the app is cited only as a runnable reference.
 

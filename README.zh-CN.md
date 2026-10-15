@@ -79,7 +79,7 @@ python scripts/coverage_checklist.py out/scan.json -o out/coverage.md
 
 有一个开源的**设备信息采集 / 检测对照 App**(包名 `com.android.device`),把大量检测项做成可在真机上运行、实时出判罚结论的参考实现,适合验证"某个检测项在真机上到底能不能抓到"。
 
-- 项目地址:`<在此填入对照 App 的 git 地址>`
+- 项目地址:https://github.com/hayasiyumito-bit/deviceinfo_collect
 
 > 两个项目相互独立;该 App 仅作为检测项的可运行参考。
 
